@@ -10,19 +10,19 @@ from geventirc import message
 from geventirc import replycode
 from geventirc import handlers
 
-IRC_PORT = 194
-IRCS_PORT = 994
+IRC_PORT = 6667
+IRCS_PORT = 6697
 
-logger = logging.getLogger(__name__)
-
+module_logger = logging.getLogger(__name__)
 
 class Client(object):
 
     def __init__(self, hostname, nick, port=IRC_PORT,
-            local_hostname=None, server_name=None, real_name=None):
+            local_hostname=None, server_name=None, real_name=None, ssl=False, logger=None):
         self.hostname = hostname
         self.port = port
         self.nick = nick
+        self.ssl = ssl
         self._socket = None
         self.real_name = real_name or nick
         self.local_hostname = local_hostname or socket.gethostname()
@@ -31,7 +31,9 @@ class Client(object):
         self._send_queue = gevent.queue.Queue()
         self._group = gevent.pool.Group()
         self._handlers = {}
-        self._global_handlers = set([])
+        self._global_handlers = set()
+        self.channels = set()
+        self.logger = logger or module_logger
 
     def add_handler(self, to_call, *commands):
         if not commands:
@@ -58,26 +60,37 @@ class Client(object):
         self._send_queue.put(msg.encode())
 
     def start(self):
-        address = None
-        try:
-            address = (socket.gethostbyname(self.hostname), self.port)
-        except socket.gaierror:
-            logger.error('hostname not found')
-            raise
-
-        logger.info('connecting to %r...' % (address,))
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.connect(address)
+        self.connect()
         self._group.spawn(self._send_loop)
         self._group.spawn(self._process_loop)
         self._group.spawn(self._recv_loop)
         # give control back to the hub
-        gevent.sleep(0)
+        #gevent.sleep(0)
+
+    def connect(self):
+        address = None
+        try:
+            address = (socket.gethostbyname(self.hostname), self.port)
+        except socket.gaierror:
+            self.logger.error('Hostname not found')
+            raise
+        self.logger.debug('Connecting to %r...' % (address,))
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if self.ssl: self._socket = gevent.ssl.SSLSocket(self._socket)
+        self._socket.connect(address)
 
     def _recv_loop(self):
         buf = ''
         while True:
-            data = self._socket.recv(512)
+            try:
+                data = self._socket.recv(512)
+            except gevent.GreenletExit: raise
+            except Exception as e:
+                self.logger.exception("Disconnected from IRC: %s %s", type(e).__name__, str(e))
+                self._socket.close()
+                gevent.sleep(30)
+                self.connect()
+                continue
             buf += data
             pos = buf.find("\r\n")
             while pos >= 0:
@@ -89,12 +102,12 @@ class Client(object):
     def _send_loop(self):
         while True:
             command = self._send_queue.get()
-            print 'send: %r' % command.encode()[:-2]
+            self.logger.debug('send: %r', command.encode()[:-2])
             self._socket.sendall(command.encode())
 
     def _process_loop(self):
-        client.send_message(message.Nick(self.nick))
-        client.send_message(
+        self.send_message(message.Nick(self.nick))
+        self.send_message(
                 message.User(
                     self.nick,
                     self.local_hostname,
@@ -115,7 +128,8 @@ class Client(object):
         self._group.join()
 
     def msg(self, to, content):
-        self.send_message(message.PrivMsg(to, content))
+        for line in content.strip().split('\n'):
+            self.send_message(message.PrivMsg(to, line))
 
     def quit(self, msg=None):
         self.send_message(message.Quit(msg))
@@ -140,10 +154,9 @@ if __name__ == '__main__':
     # client.add_handler(hello.start, '001')
     client.add_handler(handlers.ReplyWhenQuoted("I'm just a bot"))
     client.add_handler(handlers.print_handler)
-    client.add_handler(handlers.nick_in_user_handler, replycode.ERR_NICKNAMEINUSE)
+    client.add_handler(handlers.nick_in_use_handler, replycode.ERR_NICKNAMEINUSE)
     client.add_handler(handlers.ReplyToDirectMessage("I'm just a bot"))
     client.add_handler(MeHandler())
     client.start()
     client.join()
-
 

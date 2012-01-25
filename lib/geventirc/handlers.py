@@ -4,30 +4,41 @@ from geventirc import replycode
 
 
 def ping_handler(client, msg):
-    client.send_message(message.Pong())
+    client.send_message(message.Pong(client.nick))
 
 def print_handler(client, msg):
     print msg.encode()[:-2]
 
-
-class JoinHandler(object):
-
-    commands = ['001']
-
-    def __init__(self, channel):
-        self.channel = channel
-
-    def __call__(self, client, msg):
-        client.send_message(message.Join(self.channel))
-
-
-def nick_in_user_handler(self, client, msg):
+def nick_in_use_handler(client, msg):
     client.nick = msg.params[1] + '_'
     client.send_message(message.Nick(client.nick))
 
 
-class NickServHandler(object):
+class JoinHandler(object):
+    
+    commands = ['001', 'KICK']
 
+    def __init__(self, channel, rejoin=True, rejoinmsg=''):
+        self.channel = channel
+        self.rejoin = rejoin
+        self.rejoinmsg = rejoinmsg
+
+    def __call__(self, client, msg):
+        if msg.command == '001':
+            client.channels.add(self.channel)
+            client.send_message(message.Join(self.channel))
+        elif self.rejoin:
+            chan, kicked, kicker = msg.params
+            if chan in client.channels and kicked == client.nick:
+                client.send_message(message.Join(self.channel))
+                if self.rejoinmsg:
+                    if "%s" in self.rejoinmsg: rejoinmsg = self.rejoinmsg % kicker
+                    else: rejoinmsg = self.rejoinmsg
+                    client.send_message(message.PrivMsg(self.channel, rejoinmsg))
+
+
+class NickServHandler(object):
+    
     commands = ['001',
         replycode.ERR_NICKNAMEINUSE,
         replycode.ERR_NICKCOLLISION]
@@ -52,7 +63,7 @@ class NickServHandler(object):
 
 
 class ReplyWhenQuoted(object):
-
+    
     commands = ['PRIVMSG']
 
     def __init__(self, reply):
@@ -67,7 +78,7 @@ class ReplyWhenQuoted(object):
 
 
 class ReplyToDirectMessage(object):
-
+    
     commands = ['PRIVMSG']
 
     def __init__(self, reply):
@@ -83,10 +94,9 @@ class ReplyToDirectMessage(object):
 
 class PeriodicMessage(object):
     """ Send a message every interval or `wait`
-
     !!! gevent 1.0 only !!!
     """
-
+    
     commands = ['001']
 
     def __init__(self, channel, msg='hello', wait=1.0):
@@ -108,5 +118,4 @@ class PeriodicMessage(object):
     def __call__(self):
         gevent.spawn(self.run)
         self._schedule()
-
 

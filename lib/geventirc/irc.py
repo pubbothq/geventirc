@@ -64,8 +64,6 @@ class Client(object):
         self._group.spawn(self._send_loop)
         self._group.spawn(self._process_loop)
         self._group.spawn(self._recv_loop)
-        # give control back to the hub
-        #gevent.sleep(0)
 
     def connect(self):
         address = None

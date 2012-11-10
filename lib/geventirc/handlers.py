@@ -27,7 +27,7 @@ class AuthHandler(object):
         self.command = command
         
     def __call__(self, client, msg):
-        client.send_message(geventirc.message.Command((self.name, self.password), command=self.command))
+        client.send_message(message.Command((self.name, self.password), command=self.command))
 
         
 class IRCShutdownHandler(object):
@@ -140,7 +140,7 @@ class PeriodicMessage(object):
         self._schedule()
 
     def _schedule(self):
-        timer = gevent.get_hub().loop.timer(self.wait)
+        timer = gevent.get_hub().loop.timer(self.wait) #@UndefinedVariable
         timer.start(self.__call__)
 
     def run(self):

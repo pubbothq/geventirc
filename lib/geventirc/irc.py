@@ -25,7 +25,7 @@ class Client(object):
         self.ssl = ssl
         self._socket = None
         self.real_name = real_name or nick
-        self.local_hostname = local_hostname or socket.gethostname()
+        self.local_hostname = local_hostname or socket.gethostname() #@UndefinedVariable
         self.server_name = server_name or 'gevent-irc'
         self._recv_queue = gevent.queue.Queue()
         self._send_queue = gevent.queue.Queue()
@@ -76,11 +76,11 @@ class Client(object):
         address = None
         try:
             address = (socket.gethostbyname(self.hostname), self.port)
-        except socket.gaierror:
+        except socket.gaierror: #@UndefinedVariable
             self.logger.error('Hostname not found')
             raise
         self.logger.debug('Connecting to %r...' % (address,))
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #@UndefinedVariable
         if self.ssl: self._socket = gevent.ssl.SSLSocket(self._socket)
         self._socket.connect(address)
 

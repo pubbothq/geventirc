@@ -64,6 +64,13 @@ class Client(object):
         self._group.spawn(self._send_loop)
         self._group.spawn(self._process_loop)
         self._group.spawn(self._recv_loop)
+        self.send_message(message.Nick(self.nick))
+        self.send_message(
+                message.User(
+                    self.nick,
+                    self.local_hostname,
+                    self.server_name,
+                    self.real_name))
 
     def connect(self):
         address = None
@@ -79,16 +86,14 @@ class Client(object):
 
     def _recv_loop(self):
         buf = ''
-        while True:
+        while 1:
             try:
                 data = self._socket.recv(512)
-            except gevent.GreenletExit: raise
+            except gevent.GreenletExit: 
+                raise
             except Exception as e:
                 self.logger.exception("Disconnected from IRC: %s %s", type(e).__name__, str(e))
-                self._socket.close()
-                gevent.sleep(30)
-                self.connect()
-                continue
+                gevent.spawn(self.reconnect)
             buf += data
             pos = buf.find("\r\n")
             while pos >= 0:
@@ -98,20 +103,27 @@ class Client(object):
                 pos = buf.find("\r\n")
 
     def _send_loop(self):
-        while True:
+        while 1:
             command = self._send_queue.get()
-            self.logger.debug('send: %r', command.encode()[:-2])
-            self._socket.sendall(command.encode())
+            try:
+                enc_cmd = command.decode('utf8')
+            except UnicodeDecodeError:
+                try:
+                    enc_cmd = command.decode('latin1')
+                except UnicodeDecodeError:
+                    self.logger.warn('Send failed due to character conversion error')
+                    continue
+            
+            enc_cmd = enc_cmd.encode('utf8', 'ignore')
+            self.logger.debug('send: %r', enc_cmd[:-2])
+            try:
+                self._socket.sendall(enc_cmd)
+            except Exception as e:
+                self.logger.exception("Client._send_loop failed")
+                gevent.spawn(self.reconnect)
 
     def _process_loop(self):
-        self.send_message(message.Nick(self.nick))
-        self.send_message(
-                message.User(
-                    self.nick,
-                    self.local_hostname,
-                    self.server_name,
-                    self.real_name))
-        while True:
+        while 1:
             data = self._recv_queue.get()
             msg = message.CTCPMessage.decode(data)
             self._handle(msg)
@@ -122,6 +134,15 @@ class Client(object):
             self._socket.close()
             self._socket = None
 
+    def reconnect(self, delay=0, flush=True):
+        self.logger.info("Shutdown for reconnect")
+        self.stop()
+        if flush:
+            self._send_queue.queue.clear()
+        gevent.sleep(delay)
+        self.start()
+        self.logger.info("Reconnected")    
+    
     def join(self):
         self._group.join()
 

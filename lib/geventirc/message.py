@@ -29,19 +29,22 @@ def irc_split(data):
         command, buf = buf.split(DELIM, 1)
     except ValueError:
         raise ProtocolViolationError('no command received: %r' % buf)
-    try:
-        buf, trailing = buf.split(DELIM + ':', 1)
-    except ValueError:
-        pass
-    params = buf.split(DELIM)
-    if trailing is not None:
-        params.append(trailing)
+    if buf.startswith(':'):
+        params = [buf[1:]]
+    else:
+        try:
+            buf, trailing = buf.split(DELIM + ':', 1)
+        except ValueError:
+            pass
+        params = buf.split(DELIM)
+        if trailing is not None:
+            params.append(trailing)
     return prefix, command, params
 
 def irc_unsplit(prefix, command, params):
     buf = ''
-    if prefix is not None:
-        buf += prefix + DELIM
+    if prefix:
+        buf += ':' + prefix + DELIM
     buf += command + DELIM
     if params is None:
         pass
@@ -55,7 +58,7 @@ def irc_unsplit(prefix, command, params):
                 buf += DELIM.join(rparams) + DELIM
             if trailing:
                 buf += ":" + trailing
-    return buf
+    return buf.strip()
 
 
 class Message(object):

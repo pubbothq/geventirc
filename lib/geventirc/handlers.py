@@ -58,7 +58,9 @@ class JoinHandler(object):
             client.channels.add(self.channel)
             client.send_message(message.Join(self.channel))
         elif self.rejoin:
-            chan, kicked, kicker = msg.params
+            chan, kicked = msg.params[:2]
+            kicker = msg.prefix_parts[1]
+            reason = '' if len(msg.params) <= 2 else msg.params[2]
             if chan in client.channels and kicked == client.nick:
                 client.send_message(message.Join(self.channel))
                 if self.rejoinmsg:
@@ -95,6 +97,7 @@ class NickServHandler(object):
 
 
 class ReplyWhenQuoted(object):
+    
     commands = ['PRIVMSG']
 
     def __init__(self, reply):
@@ -106,6 +109,19 @@ class ReplyWhenQuoted(object):
             # check if this is a direct message
             if channel != client.nick:
                 client.msg(channel, self.reply)
+
+
+class MeHandler(object):
+    commands = ['PRIVMSG']
+
+    def __init__(self, reply):
+        self.reply = reply
+
+    def __call__(self, client, msg):
+        if client.nick == msg.params[0]:
+            nick, _, _ = msg.prefix_parts
+            client.send_message(
+                    message.Me(nick, self.reply))
 
 
 class ReplyToDirectMessage(object):

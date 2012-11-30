@@ -79,10 +79,12 @@ class Client(object):
         except socket.gaierror: #@UndefinedVariable
             self.logger.error('Hostname not found')
             raise
-        self.logger.debug('Connecting to %r...' % (address,))
+        self.logger.debug('Connecting to %r...', address)
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #@UndefinedVariable
-        if self.ssl: self._socket = gevent.ssl.SSLSocket(self._socket)
+        if self.ssl:
+            self._socket = gevent.ssl.SSLSocket(self._socket)
         self._socket.connect(address)
+        self.logger.debug('Connection established')
 
     def _recv_loop(self):
         buf = ''
@@ -121,22 +123,26 @@ class Client(object):
             except Exception as e:
                 self.logger.exception("Client._send_loop failed")
                 gevent.spawn(self.reconnect)
+                return
 
     def _process_loop(self):
         while 1:
             data = self._recv_queue.get()
+            # self.logger.debug("Handling: %s", data)
             msg = message.CTCPMessage.decode(data)
             self._handle(msg)
 
     def stop(self):
         self._group.kill()
         if self._socket is not None:
+            self._socket.shutdown(2)
             self._socket.close()
             self._socket = None
 
-    def reconnect(self, delay=0, flush=True):
+    def reconnect(self, delay=1, flush=True):
         self.logger.info("Shutdown for reconnect")
         self.stop()
+        self.join()
         if flush:
             self._send_queue.queue.clear()
         gevent.sleep(delay)
@@ -157,15 +163,6 @@ class Client(object):
 
 if __name__ == '__main__':
 
-    class MeHandler(object):
-        commands = ['PRIVMSG']
-
-        def __call__(self, client, msg):
-            if client.nick == msg.params[0]:
-                nick, _, _ = msg.prefix_parts
-                client.send_message(
-                        message.Me(nick, "do nothing it's just a bot"))
-
     nick = 'geventbot'
     client = Client('irc.freenode.net', nick, port=6667)
     client.add_handler(handlers.ping_handler, 'PING')
@@ -175,7 +172,7 @@ if __name__ == '__main__':
     client.add_handler(handlers.print_handler)
     client.add_handler(handlers.nick_in_use_handler, replycode.ERR_NICKNAMEINUSE)
     client.add_handler(handlers.ReplyToDirectMessage("I'm just a bot"))
-    client.add_handler(MeHandler())
+    client.add_handler(handlers.MeHandler("is just a bot"))
     client.start()
     client.join()
 

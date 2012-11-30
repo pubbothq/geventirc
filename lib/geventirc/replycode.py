@@ -130,3 +130,5 @@ ERR_UNIQOPPRIVSNEEDED = 485
 ERR_NOOPERHOST = 491
 ERR_UMODEUNKNOWNFLAG = 501
 ERR_USERSDONTMATCH = 502
+
+replycode = dict((no, name) for name, no  in locals().items() if isinstance(no, int))

@@ -49,7 +49,9 @@ def create_server(host, port):
     else:
         return ircd
     
+    
 class TestSetupClass(object):
+    """ Fails with PyDev. So make sure to run py.test from console """
     setup_cnt = 0
     
     @classmethod
@@ -60,29 +62,36 @@ class TestSetupClass(object):
         assert self.setup_cnt == 1
     
     def test_2(self):
-        assert self.setup_cnt == 1
+        assert self.setup_cnt == 1, "Run py.test from console"
     
     def test_3(self):
-        assert self.setup_cnt == 1
+        assert self.setup_cnt == 1, "Run py.test from console"
 
 
 class TestLocal(object):
     @classmethod
     def setup_class(cls):
+        
         cls.server = create_server('localhost', TEST_PORT)
         cls.client = create_client('localhost', TEST_NICK, port=TEST_PORT)
+        cls.msgbuff = handlers.PrivMsgBuffer()
+        cls.client2 = create_client('localhost', 'OTHERCLIENT')
+        cls.client2.add_handler(cls.msgbuff)
 
     @classmethod
     def teardown_class(cls):
         cls.client.stop()
+        cls.client2.stop()
         cls.server.shutdown()
 
-    def test_connect(self):
-        self.client.start()
+    @pytest.mark.parametrize(('client',), (('client',), ('client2',)))
+    def test_connect(self, client):
+        client = getattr(self, client)
+        client.start()
         with gevent.Timeout(0.5):
-            while not self.client.nick in self.server.clients:
+            while client.nick not in self.server.clients:
                 gevent.sleep(0.01)
-        assert self.client.nick in self.server.clients
+        assert client.nick in self.server.clients
         
     def test_join_on_connect(self):
         with gevent.Timeout(0.5):
@@ -103,6 +112,16 @@ class TestLocal(object):
         pass
     
     def test_privmsg(self):
+        msgtext = 'Any stuipd random message'
+        self.client.send_message(message.PrivMsg(self.client2.nick, msgtext))
+        with gevent.Timeout(0.5):
+            while not self.msgbuff.buffer:
+                gevent.sleep(0.05)
+        # print self.msgbuff.buffer[0][0], ' '.join(self.msgbuff.buffer[0][1].params[1:])
+        assert self.msgbuff.buffer[0][0] == self.client.nick
+        assert ' '.join(self.msgbuff.buffer[0][1].params[1:]) == msgtext
+        
+    def test_pingpong(self):
         pass
     
     def test_rejoin(self):
@@ -133,30 +152,38 @@ class TestLocal(object):
 
 
 @pytest.mark.skipif('True')
-class Remote(object):
+class TestRemote(object):
+    """ Run tests against some serious IRC server """
+    
     @classmethod
-    def setUpClass(cls):
+    def setup_class(cls):
         cls.client = cls.create_client(TEST_HOST, TEST_NICK, password=TEST_PASSWORD)
 
-    def test_01_connect(self):
+    @classmethod
+    def teardown_class(cls):
+        cls.client.stop()
+        cls.server.shutdown()
+
+    def test_connect(self):
         self.client.start()
         self.client.connect()
         
-    def test_02_authenticated(self):
+    def test_authenticated(self):
         pass
     
-    def test_03_join(self):
+    def test_join(self):
         pass
     
-    def test_04_msg(self):
+    def test_privmsg(self):
         pass
     
 
-class Chatting(object):
+@pytest.mark.skipif('True')
+class TestChatting(object):
     @classmethod
-    def setUpClass(cls):
+    def setup_class(cls):
         from geventirc import chatting
-        cls.client = cl = Client('localhost', TEST_NICK, password=None)
+        cls.client = cl = create_client('localhost', TEST_NICK, password=None)
         cl.add_handler(handlers.ping_handler, 'PING') # for keepalives
         cl.add_handler(handlers.JoinHandler("#testing", rejoinmsg='%s sucks'))
         cl.add_handler(chatting.ChatHandler(TEST_NICK, '#testchat', 
@@ -164,12 +191,14 @@ class Chatting(object):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     tl = TestLocal()
     tl.setup_class()
-    tl.test_connect()
+    tl.test_connect('client')
+    tl.test_connect('client2')
     tl.test_join_on_connect()
     tl.test_join()
+    tl.test_privmsg()
     tl.test_rejoin()
     tl.test_reconnect()
     tl.test_shutdown()

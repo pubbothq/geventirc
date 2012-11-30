@@ -60,7 +60,7 @@ class JoinHandler(object):
         elif self.rejoin:
             chan, kicked = msg.params[:2]
             kicker = msg.prefix_parts[1]
-            reason = '' if len(msg.params) <= 2 else msg.params[2]
+            # reason = '' if len(msg.params) <= 2 else msg.params[2]
             if chan in client.channels and kicked == client.nick:
                 client.send_message(message.Join(self.channel))
                 if self.rejoinmsg:
@@ -138,6 +138,23 @@ class ReplyToDirectMessage(object):
             if nick is not None:
                 client.msg(nick, self.reply)
 
+
+class PrivMsgBuffer(object):
+    commands = ['PRIVMSG']
+    
+    def __init__(self):
+        self.buffer = []
+
+    def __call__(self, client, msg):
+        channel = msg.params[0]
+        if client.nick == channel:
+            nick, user_agent, host = msg.prefix_parts
+            if nick is not None:
+                self.buffer.append((nick, msg))
+                
+    def __len__(self):
+        return len(self.buffer)
+        
 
 class PeriodicMessage(object):
     """ Send a message every interval or `wait`

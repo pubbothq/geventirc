@@ -71,7 +71,6 @@ class TestSetupClass(object):
 class TestLocal(object):
     @classmethod
     def setup_class(cls):
-        
         cls.server = create_server('localhost', TEST_PORT)
         cls.client = create_client('localhost', TEST_NICK, port=TEST_PORT)
         cls.msgbuff = handlers.PrivMsgBuffer()
@@ -112,7 +111,7 @@ class TestLocal(object):
         pass
     
     def test_privmsg(self):
-        msgtext = 'Any stuipd random message'
+        msgtext = 'Any stupid random message'
         self.client.send_message(message.PrivMsg(self.client2.nick, msgtext))
         with gevent.Timeout(0.5):
             while not self.msgbuff.buffer:

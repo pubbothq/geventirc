@@ -59,7 +59,6 @@
 import sys
 import optparse
 import logging
-import ConfigParser
 import os
 from collections import deque
 import SocketServer
@@ -78,8 +77,7 @@ SRV_WELCOME = "Welcome to %s v%s, the ugliest IRC server in the world." % (SRV_N
 
 
 class IRCError(Exception):
-    """
-    Exception thrown by IRC command handlers to notify client of a server/client error.
+    """ Exception thrown by IRC command handlers to notify client of a server/client error.
     """
     def __init__(self, code, value):
         self.code = code
@@ -90,8 +88,7 @@ class IRCError(Exception):
 
 
 class IRCChannel(object):
-    """
-    Object representing an IRC channel.
+    """ Object representing an IRC channel.
     """
     def __init__(self, name, topic='No topic'):
         self.name = name
@@ -101,11 +98,10 @@ class IRCChannel(object):
 
 
 class IRCClient(SocketServer.BaseRequestHandler):
-    """
-    IRC client connect and command handling. Client connection is handled by
-    the `handle` method which sets up a two-way communication with the client.
-    It then handles commands sent by the client by dispatching them to the
-    handle_ methods.
+    """ IRC client connect and command handling. Client connection is handled by
+        the `handle` method which sets up a two-way communication with the client.
+        It then handles commands sent by the client by dispatching them to the
+        handle_ methods.
     """
     def __init__(self, request, client_address, server):
         self.user = None
@@ -173,8 +169,7 @@ class IRCClient(SocketServer.BaseRequestHandler):
         self.request.close()
 
     def handle_nick(self, params):
-        """
-        Handle the initial setting of the user's nickname and nick changes.
+        """ Handle the initial setting of the user's nickname and nick changes.
         """
         nick = params[0]
         logger.debug("handling nick: %s", nick)
@@ -224,8 +219,7 @@ class IRCClient(SocketServer.BaseRequestHandler):
                 return message
 
     def handle_user(self, params):
-        """
-        Handle the USER command which identifies the user to the server.
+        """ Handle the USER command which identifies the user to the server.
         """
         logger.debug("handling user: %s", params)
 
@@ -238,16 +232,14 @@ class IRCClient(SocketServer.BaseRequestHandler):
         self.realname = realname
 
     def handle_ping(self, params):
-        """
-        Handle client PING requests to keep the connection alive.
+        """ Handle client PING requests to keep the connection alive.
         """
         response = ':%s PONG :%s' % (self.server.servername, self.server.servername)
         return response
 
     def handle_join(self, params):
-        """
-        Handle the JOINing of a user to a channel. Valid channel names start
-        with a # and consist of a-z, A-Z, 0-9 and/or '_'.
+        """ Handle the JOINing of a user to a channel. Valid channel names start
+            with a # and consist of a-z, A-Z, 0-9 and/or '_'.
         """
         channel_names = params[0]
         for channel_name in channel_names.split(','):
@@ -283,8 +275,7 @@ class IRCClient(SocketServer.BaseRequestHandler):
             self.send_queue.append(response)
 
     def handle_privmsg(self, params):
-        """
-        Handle sending a private message to a user or channel.
+        """ Handle sending a private message to a user or channel.
         """
         # FIXME: ERR_NEEDMOREPARAMS
         target = params[0]
@@ -315,8 +306,7 @@ class IRCClient(SocketServer.BaseRequestHandler):
                 raise IRCError(rpl.ERR_NOSUCHNICK, 'PRIVMSG :%s' % target)
 
     def handle_topic(self, params):
-        """
-        Handle a topic command.
+        """ Handle a topic command.
         """
         channel_name = params[0]
         if len(params) > 1:
@@ -338,8 +328,7 @@ class IRCClient(SocketServer.BaseRequestHandler):
         return message
 
     def handle_part(self, params):
-        """
-        Handle a client parting from channel(s).
+        """ Handle a client parting from channel(s).
         """
         for pchannel in params[0].split(','):
             if pchannel.strip() in self.server.channels:
@@ -378,8 +367,7 @@ class IRCClient(SocketServer.BaseRequestHandler):
         affected_client.channels.pop(channel.name)
 
     def handle_quit(self, params):
-        """
-        Handle the client breaking off the connection with a QUIT command.
+        """ Handle the client breaking off the connection with a QUIT command.
         """
         response = ':%s QUIT :%s' % (self.client_ident(), params[0])
         # Send quit message to all clients in all channels user is in, and
@@ -390,8 +378,7 @@ class IRCClient(SocketServer.BaseRequestHandler):
             channel.clients.remove(self)
 
     def handle_dump(self, params):
-        """
-        Dump internal server information for debugging purposes.
+        """ Dump internal server information for debugging purposes.
         """
         print "Clients:", self.server.clients
         for client in self.server.clients.values():
@@ -405,16 +392,14 @@ class IRCClient(SocketServer.BaseRequestHandler):
                 print "     ", client.nick, client
 
     def client_ident(self):
-        """
-        Return the client identifier as included in many command replies.
+        """ Return the client identifier as included in many command replies.
         """
         return '%s!%s@%s' % (self.nick, self.user, self.server.servername)
 
     def finish(self):
-        """
-        The client connection is finished. Do some cleanup to ensure that the
-        client doesn't linger around in any channel or the client list, in case
-        the client didn't properly close the connection with PART and QUIT.
+        """ The client connection is finished. Do some cleanup to ensure that the
+            client doesn't linger around in any channel or the client list, in case
+            the client didn't properly close the connection with PART and QUIT.
         """
         logger.info('Client disconnected: %s' % (self.client_ident()))
         response = ':%s QUIT :EOF from client' % (self.client_ident())
@@ -429,8 +414,7 @@ class IRCClient(SocketServer.BaseRequestHandler):
         logger.info('Connection finished: %s' % (self.client_ident()))
 
     def __repr__(self):
-        """
-        Return a user-readable description of the client
+        """ Return a user-readable description of the client
         """
         return '<%s %s!%s@%s (%s)>' % (
             self.__class__.__name__,
@@ -453,8 +437,7 @@ class IRCServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
 
 class Daemon(object):
-    """
-    Daemonize the current process (detach it from the console).
+    """ Daemonize the current process (detach it from the console).
     """
 
     def __init__(self):
@@ -496,10 +479,7 @@ class Daemon(object):
                 pass
 
 
-if __name__ == "__main__":
-    #
-    # Parameter parsing
-    #
+def parse_params():
     parser = optparse.OptionParser()
     parser.set_usage(sys.argv[0] + " [option]")
 
@@ -513,15 +493,10 @@ if __name__ == "__main__":
     parser.add_option("-e", "--errors", dest="errors", action="store_true", default=False, help="Do not intercept errors.")
     parser.add_option("-f", "--foreground", dest="foreground", action="store_true", default=False, help="Do not go into daemon mode.")
 
-    (options, args) = parser.parse_args()
+    return parser.parse_args()[0]
 
-    # Paths
-    configfile = os.path.join(os.path.realpath(os.path.dirname(sys.argv[0])),'hircd.ini')
+def logging_config(options):
     logfile = os.path.join(os.path.realpath(os.path.dirname(sys.argv[0])),'hircd.log')
-
-    # 
-    # Logging
-    #
     if options.verbose:
         loglevel = logging.DEBUG
     else:
@@ -533,9 +508,16 @@ if __name__ == "__main__":
         filename=logfile,
         filemode='a')
 
-    #
-    # Handle start/stop/restart commands.
-    #
+    if options.log_stdout:
+        console = logging.StreamHandler()
+        formatter = logging.Formatter('[%(levelname)s] %(message)s')
+        console.setFormatter(formatter)
+        console.setLevel(logging.DEBUG)
+        logger.addHandler(console)
+
+    return logfile
+
+def start_stop(options):
     if options.stop or options.restart:
         pid = None
         try:
@@ -557,33 +539,31 @@ if __name__ == "__main__":
         if not options.restart:
             sys.exit(0)
 
-    logger.info("Starting hircd")
-    logger.debug("configfile = %s" % (configfile))
-    logger.debug("logfile = %s" % (logfile))
 
-    if options.log_stdout:
-        console = logging.StreamHandler()
-        formatter = logging.Formatter('[%(levelname)s] %(message)s')
-        console.setFormatter(formatter)
-        console.setLevel(logging.DEBUG)
-        logger.addHandler(console)
+def main():
+    options = parse_params()
+    logfile = logging_config(options)
+    
+    start_stop(options)
+    logger.info("Starting hircd")
+    logger.debug("logfile = %s", logfile)
 
     if options.verbose:
         logger.info("We're being verbose")
 
-    #
-    # Go into daemon mode
-    #
+    # Go into daemon mode if told so
     if not options.foreground:
         Daemon()
 
-    #
     # Start server
-    #
     try:
         ircserver = IRCServer((options.listen_address, int(options.listen_port)), IRCClient)
-        logger.info('Starting hircd on %s:%s' % (options.listen_address, options.listen_port))
+        logger.info('Starting hircd on %s:%s', options.listen_address, options.listen_port)
         ircserver.serve_forever()
     except socket.error, e:
         logging.error(repr(e))
         sys.exit(-2)
+        
+
+if __name__ == "__main__":
+    main()

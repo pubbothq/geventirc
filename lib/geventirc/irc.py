@@ -135,7 +135,10 @@ class Client(object):
     def stop(self):
         self._group.kill()
         if self._socket is not None:
-            self._socket.shutdown(2)
+            try:
+                self._socket.shutdown(2)
+            except socket.error: #@UndefinedVariable
+                pass
             self._socket.close()
             self._socket = None
 

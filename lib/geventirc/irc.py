@@ -91,7 +91,7 @@ class Client(object):
         while 1:
             try:
                 data = self._socket.recv(512)
-            except gevent.GreenletExit: 
+            except gevent.GreenletExit:
                 raise
             except Exception as e:
                 self.logger.exception("Disconnected from IRC: %s %s", type(e).__name__, str(e))
@@ -109,13 +109,13 @@ class Client(object):
             command = self._send_queue.get()
             try:
                 enc_cmd = command.decode('utf8')
-            except UnicodeDecodeError:
+            except UnicodeError:
                 try:
                     enc_cmd = command.decode('latin1')
-                except UnicodeDecodeError:
+                except UnicodeError:
                     self.logger.warn('Send failed due to character conversion error')
                     continue
-            
+
             enc_cmd = enc_cmd.encode('utf8', 'ignore')
             self.logger.debug('send: %r', enc_cmd[:-2])
             try:
@@ -150,8 +150,8 @@ class Client(object):
             self._send_queue.queue.clear()
         gevent.sleep(delay)
         self.start()
-        self.logger.info("Reconnected")    
-    
+        self.logger.info("Reconnected")
+
     def join(self):
         self._group.join()
 
@@ -165,7 +165,6 @@ class Client(object):
 
 
 if __name__ == '__main__':
-
     nick = 'geventbot'
     client = Client('irc.freenode.net', nick, port=6667)
     client.add_handler(handlers.ping_handler, 'PING')
@@ -178,4 +177,3 @@ if __name__ == '__main__':
     client.add_handler(handlers.MeHandler("is just a bot"))
     client.start()
     client.join()
-

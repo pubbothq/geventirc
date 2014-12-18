@@ -10,7 +10,6 @@ setup(name="geventirc",
       packages=find_packages('lib'),
       zip_safe=False,
       install_requires=[
-          'distribute',
           'gevent',
         ],
     )
